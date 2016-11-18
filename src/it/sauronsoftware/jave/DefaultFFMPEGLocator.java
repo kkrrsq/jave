@@ -1,9 +1,11 @@
 package it.sauronsoftware.jave;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 
 public class DefaultFFMPEGLocator extends FFMPEGLocator {
@@ -13,10 +15,30 @@ public class DefaultFFMPEGLocator extends FFMPEGLocator {
 	public DefaultFFMPEGLocator() {
 		String os = System.getProperty("os.name").toLowerCase();
 		boolean isWindows;
-		if (os.indexOf("windows") != -1)
+		String fileName;
+		if (os.indexOf("windows") != -1) {
 			isWindows = true;
-		else {
+			String arch = System.getenv("PROCESSOR_ARCHITECTURE");
+			String wow64Arch = System.getenv("PROCESSOR_ARCHITEW6432");
+			if (arch.endsWith("64") || wow64Arch != null && wow64Arch.endsWith("64")) {
+				fileName = "ffmpeg_win64.exe";
+			} else {
+				fileName = "ffmpeg_win32.exe";
+			}
+		} else {
 			isWindows = false;
+			try {
+				Process process = Runtime.getRuntime().exec("getconf LONG_BIT");
+				BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+				String s = bufferedReader.readLine();
+				if (s.contains("64")) {
+					fileName = "ffmpeg_linux64";
+				} else {
+					fileName = "ffmpeg_linux64";
+				}
+			} catch (IOException e) {
+				throw new RuntimeException("jave init fail!", e);
+			}
 		}
 
 		File temp = new File(System.getProperty("java.io.tmpdir"), "jave-1");
@@ -29,7 +51,7 @@ public class DefaultFFMPEGLocator extends FFMPEGLocator {
 		String suffix = isWindows ? ".exe" : "";
 		File exe = new File(temp, "ffmpeg" + suffix);
 		if (!exe.exists()) {
-			copyFile("ffmpeg" + suffix, exe);
+			copyFile(fileName, exe);
 		}
 
 		if (!isWindows) {
@@ -37,7 +59,7 @@ public class DefaultFFMPEGLocator extends FFMPEGLocator {
 			try {
 				runtime.exec(new String[] { "/bin/chmod", "755", exe.getAbsolutePath() });
 			} catch (IOException e) {
-				e.printStackTrace();
+				throw new RuntimeException("jave init fail!", e);
 			}
 		}
 
